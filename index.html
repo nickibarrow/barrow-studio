@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Barrow Studio | Coming Soon</title>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,200;6..72,300;6..72,400;6..72,500&family=Work+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+    
+    <!-- Scripts -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/framer-motion@10.16.4/dist/framer-motion.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        headline: ["Newsreader", "serif"],
+                        body: ["Work Sans", "sans-serif"],
+                    },
+                    colors: {
+                        primary: "#610000",
+                        "primary-container": "#8b0000",
+                        secondary: "#50652a",
+                        "secondary-container": "#cfe99f",
+                        "on-secondary-container": "#546a2e",
+                        background: "#fcf9f1",
+                        surface: "#fcf9f1",
+                        "surface-container-low": "#f6f3eb",
+                        "surface-container-highest": "#e5e2db",
+                        "on-surface": "#1c1c17",
+                        "on-surface-variant": "#5a403c",
+                        "outline-variant": "#e3beb8",
+                        bone: "#fcf9f1",
+                    },
+                },
+            },
+        }
+    </script>
+
+    <style type="text/tailwindcss">
+        @layer base {
+            html {
+                font-size: 16px;
+            }
+
+            @media (min-width: 768px) {
+                html {
+                    font-size: 12px;
+                }
+            }
+
+            body {
+                @apply bg-background text-on-surface font-body antialiased;
+                cursor: none;
+            }
+
+            a, button, [role="button"], .cursor-pointer, input, select, textarea {
+                cursor: none !important;
+            }
+
+            h1, h2, h3, h4, h5, h6 {
+                @apply font-headline;
+            }
+        }
+
+        @layer utilities {
+            .backdrop-blur-xl {
+                backdrop-filter: blur(24px);
+            }
+
+            .ghost-border {
+                border: 1px solid rgba(227, 190, 184, 0.15);
+            }
+
+            .ghost-border-hover:hover {
+                border: 1px solid rgba(227, 190, 184, 0.3);
+            }
+
+            .scrollbar-hide::-webkit-scrollbar {
+                display: none;
+            }
+            .scrollbar-hide {
+                -ms-overflow-style: none;
+                scrollbar-width: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+        
+        // Robustly find Framer Motion global
+        const MotionGlobal = window.Motion || window.framerMotion || window.FramerMotion;
+        if (!MotionGlobal) {
+            console.error("Framer Motion not found. Check CDN links.");
+        }
+        const { motion, AnimatePresence } = MotionGlobal || { motion: (props) => <div {...props} />, AnimatePresence: ({children}) => children };
+
+        // --- Icons ---
+        const InstagramIcon = ({ size = 24 }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect width="20" height="20" x="2" y="2" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" x2="17.51" y1="6.5" y2="6.5"/>
+            </svg>
+        );
+
+        const MailIcon = ({ size = 24 }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
+            </svg>
+        );
+
+        const ArrowRightIcon = ({ size = 24 }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>
+            </svg>
+        );
+
+        // --- Components ---
+
+        const CustomCursor = () => {
+            const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+            const [trailPos, setTrailPos] = useState({ x: 0, y: 0 });
+            const [isHovering, setIsHovering] = useState(false);
+
+            useEffect(() => {
+                const handleMouseMove = (e) => {
+                    setMousePos({ x: e.clientX, y: e.clientY });
+                };
+
+                const handleMouseOver = (e) => {
+                    const target = e.target;
+                    const interactive = target.closest('a, button, [role="button"], .cursor-pointer, input');
+                    setIsHovering(!!interactive);
+                };
+
+                window.addEventListener('mousemove', handleMouseMove);
+                window.addEventListener('mouseover', handleMouseOver);
+
+                return () => {
+                    window.removeEventListener('mousemove', handleMouseMove);
+                    window.removeEventListener('mouseover', handleMouseOver);
+                };
+            }, []);
+
+            useEffect(() => {
+                let animationFrameId;
+                const lerp = (start, end, factor) => {
+                    return start + (end - start) * factor;
+                };
+
+                const updateTrail = () => {
+                    setTrailPos(prev => ({
+                        x: lerp(prev.x, mousePos.x, 0.13),
+                        y: lerp(prev.y, mousePos.y, 0.13)
+                    }));
+                    animationFrameId = requestAnimationFrame(updateTrail);
+                };
+
+                updateTrail();
+                return () => cancelAnimationFrame(animationFrameId);
+            }, [mousePos]);
+
+            return (
+                <React.Fragment>
+                    <div 
+                        className="fixed top-0 left-0 pointer-events-none z-[9999] -translate-x-1/2 -translate-y-1/2 flex items-center justify-center"
+                        style={{ left: mousePos.x, top: mousePos.y, width: '10px', height: '10px' }}
+                    >
+                        <div className="absolute w-full h-[1px] bg-secondary" />
+                        <div className="absolute h-full w-[1px] bg-secondary" />
+                    </div>
+                    <motion.div 
+                        className="fixed top-0 left-0 border border-secondary rounded-full pointer-events-none z-[9999] -translate-x-1/2 -translate-y-1/2"
+                        animate={{ 
+                            width: isHovering ? 40 : 26, 
+                            height: isHovering ? 40 : 26,
+                            backgroundColor: isHovering ? 'rgba(80, 101, 42, 0.2)' : 'rgba(80, 101, 42, 0.05)',
+                            left: trailPos.x,
+                            top: trailPos.y
+                        }}
+                        transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+                    />
+                </React.Fragment>
+            );
+        };
+
+        function App() {
+            return (
+                <div className="min-h-screen bg-background flex flex-col selection:bg-secondary/20 selection:text-primary">
+                    <CustomCursor />
+                    
+                    {/* Background Elements */}
+                    <div className="fixed inset-0 pointer-events-none overflow-hidden opacity-80">
+                        <motion.img 
+                            initial={{ opacity: 0, scale: 0.8 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            transition={{ duration: 2, ease: "easeOut" }}
+                            src={encodeURI('/Red-Wash.png')} 
+                            alt="" 
+                            className="absolute top-0 right-0 w-[30vw] max-w-sm rotate-6"
+                        />
+                        <motion.img 
+                            initial={{ opacity: 0, scale: 0.8 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            transition={{ duration: 2, delay: 0.5, ease: "easeOut" }}
+                            src={encodeURI('/Green-Wash.png')} 
+                            alt="" 
+                            className="absolute bottom-0 left-0 w-[25vw] max-w-xs -rotate-6 -translate-x-1/4 translate-y-1/4"
+                        />
+                    </div>
+
+                    <main className="flex-grow flex flex-col items-center justify-center px-6 py-20 relative z-10">
+                        <motion.div 
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 1 }}
+                            className="text-center max-w-2xl"
+                        >
+                            <span className="text-[10px] uppercase tracking-[0.5em] text-secondary font-body mb-8 block">
+                                Digital Archive & Gallery
+                            </span>
+                            
+                            <h1 className="text-[15vw] md:text-[8rem] font-headline font-[200] leading-[0.85] text-on-surface uppercase tracking-tighter mb-12">
+                                Barrow<br />Studio
+                            </h1>
+                            
+                            <div className="h-px w-24 bg-primary/20 mx-auto mb-12" />
+                            
+                            <p className="text-lg md:text-xl font-headline text-on-surface-variant mb-16 leading-relaxed">
+                                A curated digital gallery for contemporary art and design. 
+                                Coming soon.
+                            </p>
+                        </motion.div>
+                    </main>
+
+                    <footer className="py-12 px-8 relative z-10">
+                        <div className="max-w-[1440px] mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
+                            <div className="flex gap-8 font-body text-[10px] uppercase tracking-[0.3em] text-on-surface/60">
+                                <a href="https://www.instagram.com/barrow.studio?igsh=MWFwaDhwaDVwMm5ieA%3D%3D&utm_source=qr" target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors flex items-center gap-2">
+                                    <InstagramIcon size={14} /> Instagram
+                                </a>
+                            </div>
+                            
+                            <div className="text-[10px] uppercase tracking-[0.3em] text-on-surface/40 font-body">
+                                © 2026 Barrow Studio. All rights reserved.
+                            </div>
+                        </div>
+                    </footer>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
