@@ -14,7 +14,6 @@
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/framer-motion@10.16.4/dist/framer-motion.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
 
     <script>
@@ -91,21 +90,48 @@
                 -ms-overflow-style: none;
                 scrollbar-width: none;
             }
+
+            .custom-cursor-trail {
+                transition: width 0.25s cubic-bezier(0.16, 1, 0.3, 1), 
+                            height 0.25s cubic-bezier(0.16, 1, 0.3, 1), 
+                            background-color 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+            }
+
+            @keyframes fadeInUp {
+                from {
+                    opacity: 0;
+                    transform: translateY(20px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+
+            .animate-fade-in-up {
+                animation: fadeInUp 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            }
         }
     </style>
 </head>
 <body>
     <div id="root"></div>
 
-    <script type="text/babel">
-        const { useState, useEffect } = React;
-        
-        // Robustly find Framer Motion global
-        const MotionGlobal = window.Motion || window.framerMotion || window.FramerMotion;
-        if (!MotionGlobal) {
-            console.error("Framer Motion not found. Check CDN links.");
+    <script>
+        // Force Babel Standalone to use the classic JSX transform (React.createElement)
+        // because we are loading React from a global UMD CDN link rather than as an ES module.
+        if (window.Babel) {
+            Babel.registerPreset('react-classic', {
+                presets: [
+                    Babel.availablePresets['env'],
+                    [Babel.availablePresets['react'], { runtime: 'classic' }]
+                ]
+            });
         }
-        const { motion, AnimatePresence } = MotionGlobal || { motion: (props) => <div {...props} />, AnimatePresence: ({children}) => children };
+    </script>
+
+    <script type="text/babel" data-presets="react-classic">
+        const { useState, useEffect } = React;
 
         // --- Icons ---
         const InstagramIcon = ({ size = 24 }) => (
@@ -129,9 +155,17 @@
         // --- Components ---
 
         const CustomCursor = () => {
-            const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
-            const [trailPos, setTrailPos] = useState({ x: 0, y: 0 });
+            // Track actual mouse position
+            const [mousePos, setMousePos] = useState({ 
+                x: typeof window !== 'undefined' ? window.innerWidth / 2 : 0, 
+                y: typeof window !== 'undefined' ? window.innerHeight / 2 : 0 
+            });
+            
+            // Track smoothed (lerped) cursor position
+            const [pos, setPos] = useState({ x: mousePos.x, y: mousePos.y });
             const [isHovering, setIsHovering] = useState(false);
+            const [isWhite, setIsWhite] = useState(false);
+            const [transform, setTransform] = useState({ angle: 0, squish: 0 });
 
             useEffect(() => {
                 const handleMouseMove = (e) => {
@@ -140,8 +174,15 @@
 
                 const handleMouseOver = (e) => {
                     const target = e.target;
-                    const interactive = target.closest('a, button, [role="button"], .cursor-pointer, input');
+                    if (!target) return;
+                    
+                    // Detect links, buttons, or interactive elements to trigger hover style
+                    const interactive = target.closest('a, button, [role="button"], .cursor-pointer');
                     setIsHovering(!!interactive);
+                    
+                    // Detect dark backgrounds with [data-cursor-white="true"] to flip cursor color to white
+                    const darkArea = target.closest('[data-cursor-white="true"]');
+                    setIsWhite(!!darkArea);
                 };
 
                 window.addEventListener('mousemove', handleMouseMove);
@@ -155,43 +196,43 @@
 
             useEffect(() => {
                 let animationFrameId;
-                const lerp = (start, end, factor) => {
-                    return start + (end - start) * factor;
+                const LERP = 0.28; // Control's fluid catch-up speed
+
+                const tick = () => {
+                    setPos(prev => {
+                        // Calculate velocity vector for direction and dynamic stretching/squishing
+                        const vx = (mousePos.x - prev.x) * LERP;
+                        const vy = (mousePos.y - prev.y) * LERP;
+                        const newX = prev.x + vx;
+                        const newY = prev.y + vy;
+
+                        const speed = Math.sqrt(vx * vx + vy * vy);
+                        const squish = Math.min(speed * 0.04, 0.4);
+                        const angle = Math.atan2(vy, vx) * (180 / Math.PI);
+
+                        setTransform({ angle, squish });
+
+                        return { x: newX, y: newY };
+                    });
+                    animationFrameId = requestAnimationFrame(tick);
                 };
 
-                const updateTrail = () => {
-                    setTrailPos(prev => ({
-                        x: lerp(prev.x, mousePos.x, 0.13),
-                        y: lerp(prev.y, mousePos.y, 0.13)
-                    }));
-                    animationFrameId = requestAnimationFrame(updateTrail);
-                };
-
-                updateTrail();
+                tick();
                 return () => cancelAnimationFrame(animationFrameId);
             }, [mousePos]);
 
             return (
-                <React.Fragment>
-                    <div 
-                        className="fixed top-0 left-0 pointer-events-none z-[9999] -translate-x-1/2 -translate-y-1/2 flex items-center justify-center"
-                        style={{ left: mousePos.x, top: mousePos.y, width: '10px', height: '10px' }}
-                    >
-                        <div className="absolute w-full h-[1px] bg-secondary" />
-                        <div className="absolute h-full w-[1px] bg-secondary" />
-                    </div>
-                    <motion.div 
-                        className="fixed top-0 left-0 border border-secondary rounded-full pointer-events-none z-[9999] -translate-x-1/2 -translate-y-1/2"
-                        animate={{ 
-                            width: isHovering ? 40 : 26, 
-                            height: isHovering ? 40 : 26,
-                            backgroundColor: isHovering ? 'rgba(80, 101, 42, 0.2)' : 'rgba(80, 101, 42, 0.05)',
-                            left: trailPos.x,
-                            top: trailPos.y
-                        }}
-                        transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                    />
-                </React.Fragment>
+                <div 
+                    className={`fixed top-0 left-0 w-[40px] h-[40px] border-2 rounded-full pointer-events-none z-[999999] will-change-transform transition-[border-color,background-color] duration-300 ${
+                        isWhite ? 'border-white' : 'border-[#50652a]'
+                    }`}
+                    style={{
+                        transform: `translate(${pos.x - 20}px, ${pos.y - 20}px) rotate(${transform.angle}deg) scale(${1 + transform.squish}, ${1 - transform.squish * 0.5})`,
+                        backgroundColor: isHovering 
+                            ? (isWhite ? 'rgba(255, 255, 255, 0.2)' : 'rgba(80, 101, 42, 0.2)') 
+                            : 'transparent'
+                    }}
+                />
             );
         };
 
@@ -205,16 +246,7 @@
                     </div>
 
                     <main className="flex-grow flex flex-col items-center justify-center px-6 py-20 relative z-10">
-                        <motion.div 
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 1 }}
-                            className="text-center max-w-2xl"
-                        >
-                            <span className="text-[10px] uppercase tracking-[0.5em] text-secondary font-body mb-1 block">
-                                Digital Archive & Gallery
-                            </span>
-                            
+                        <div className="text-center max-w-2xl animate-fade-in-up">
                             <h1 className="mb-4 flex justify-center overflow-hidden">
                                 <img 
                                     src="/Logo-2.png" 
@@ -227,10 +259,9 @@
                             <div className="h-px w-24 bg-primary/20 mx-auto mb-6" />
                             
                             <p className="text-base md:text-xl font-headline text-on-surface-variant mb-16 leading-relaxed text-center">
-                                A curated digital gallery for contemporary art and design. 
-                                Coming soon.
+                                A digital gallery. Coming soon.
                             </p>
-                        </motion.div>
+                        </div>
                     </main>
 
                     <footer className="py-12 px-8 relative z-10">
